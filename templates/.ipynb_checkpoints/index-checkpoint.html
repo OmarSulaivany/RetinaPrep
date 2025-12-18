@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RetinaPrep AI Tool v3.4 (Export Fix)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+  :root{ --bg:#f7fafc; --surface:#ffffff; --line:#dbe2ea; --ink:#0f172a; --muted:#52607a; --accent:#2563eb; --ok:#16a34a; --bad:#dc2626; --warn:#d97706; }
+  body{height:100vh;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,sans-serif;display:flex;flex-direction:column}
+  .app{flex:1;max-width:1400px;margin:20px auto;padding:0 16px;display:flex;flex-direction:column;gap:12px;width:100%;box-sizing:border-box;overflow:hidden;position:relative;}
+  
+  /* Header */
+  .titlebar{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}
+  h1{font-size:18px;margin:0}
+  
+  /* Buttons */
+  .btn{background:#fff;border:1px solid var(--line);padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:500;font-size:13px;transition:all 0.2s}
+  .btn:hover{background:#f1f5f9; transform:translateY(-1px);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+  
+  .btn.primary{border-color:var(--accent);color:#fff;background:var(--accent)}
+  .btn.primary:hover{background:#1d4ed8}
+  
+  .btn.start{border-color:var(--ok);color:#fff;background:var(--ok)}
+  .btn.start:hover{background:#15803d}
+  
+  .btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  .btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+  
+  .btn.ok.outline{background:#fff;color:var(--ok);border:1px solid var(--ok)}
+  .btn.ok.outline:hover{background:#f0fdf4}
+  
+  .btn.bad.outline{background:#fff;color:var(--bad);border:1px solid var(--bad)}
+  .btn.bad.outline:hover{background:#fef2f2}
+
+  .btn.small{padding:2px 6px;font-size:10px}
+  .btn.icon{padding:4px 8px;font-size:14px;line-height:1;}
+
+  /* Main Layout */
+  .row{display:flex;gap:16px;flex:1;min-height:0;position:relative;}
+  
+  .col-left{
+      width:280px; display:flex; flex-direction:column; gap:10px; height:100%; 
+      transition: width 0.3s ease, background 0.3s; z-index: 10; background: var(--bg);
+  }
+  .col-left.expanded {
+      position: absolute; top:0; left:0; width:100%; height:100%; 
+      background: var(--bg); z-index: 100;
+  }
+
+  .col-center{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;height:100%;}
+  .col-right{width:320px;display:flex;flex-direction:column;gap:10px;height:100%;}
+  
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;max-height:100%;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  
+  /* List View */
+  .list{flex:1 1 0; min-height:0; overflow-y:auto; border:1px solid var(--line); border-radius:6px;}
+  .item{padding:8px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:#fff;}
+  .item:hover{background:#f8fafc}
+  .item.active{background:#eff6ff;border-left:3px solid var(--accent)}
+  .item input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent); }
+
+  /* Gallery Grid View */
+  .list.grid-mode {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-auto-rows: 160px; 
+      gap: 16px; padding: 16px; background: #f1f5f9;
+      align-content: start;
+  }
+  .grid-card {
+      background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+      display: flex; flex-direction: column; cursor: pointer; position: relative;
+      height: 100%; transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .grid-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  .grid-card.active { outline: 3px solid var(--accent); outline-offset: -3px; }
+  
+  .grid-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  
+  .grid-check { 
+      position: absolute; top: 8px; right: 8px; 
+      width: 24px; height: 24px; 
+      cursor: pointer; accent-color: var(--accent); 
+      z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  
+  .grid-status-badge {
+      position: absolute; top: 8px; left: 8px;
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 10px; font-weight: bold; color: #fff;
+      z-index: 10; pointer-events: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      text-transform: uppercase;
+  }
+  .grid-status-badge.ok { background: var(--ok); }
+  .grid-status-badge.bad { background: var(--bad); }
+
+  .grid-info { 
+      position: absolute; bottom: 0; left: 0; width: 100%; 
+      background: rgba(0,0,0,0.7); color: #fff; font-size: 11px; 
+      padding: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+  }
+  
+  /* MODAL */
+  .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); z-index: 1000;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      width: 90vw; max-width: 800px; max-height: 90vh; 
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      position: relative;
+  }
+  .modal-close {
+      position: absolute; top: 12px; right: 12px;
+      background: none; border: none; font-size: 24px; color: var(--muted);
+      cursor: pointer; line-height: 1; z-index: 10;
+  }
+  .modal-img {
+      width: 100%; height: auto; max-height: 70vh; 
+      border-radius: 8px; object-fit: contain; background:#000;
+      display: block; margin: 0 auto;
+  }
+  
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding-right: 30px; }
+  .modal-title-group { display: flex; align-items: center; gap: 10px; }
+  .modal-check-input { width: 24px; height: 24px; accent-color: var(--accent); cursor: pointer; }
+  .modal-status-pill { font-size: 13px; padding: 4px 10px; border-radius: 6px; font-weight: bold; color: #fff; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: auto; }
+
+  /* Pills */
+  .pill{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;text-transform:uppercase}
+  .pill.pending{background:#f3f4f6;color:#6b7280}
+  .pill.skipped{background:#f3f4f6;color:#9ca3af;text-decoration:line-through}
+  .pill.ok{background:#dcfce7;color:#166534}
+  .pill.bad{background:#fee2e2;color:#991b1b}
+  .pill.loading{background:#e0f2fe;color:#075985}
+
+  /* Canvas Pane */
+  .pane{position:relative;background:#000;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100%;}
+  canvas{max-width:100%;max-height:100%;display:block}
+  .pane-label{position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.6);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;pointer-events:none}
+  
+  #cvCrop { cursor: default; }
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  
+  thead th { 
+      position: sticky; top: 0; background: #f8fafc; z-index: 5;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      cursor: pointer; user-select: none;
+  }
+  thead th:hover { background: #e2e8f0; color: var(--ink); }
+  
+  th,td{padding:6px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--muted);font-weight:600;}
+  
+  .summary-row { cursor: pointer; transition: background 0.2s; }
+  .summary-row:hover { background: #f8fafc; }
+  .summary-row.active-row { background: #eff6ff; border-left: 2px solid var(--accent); }
+
+  /* Filtering & Search Controls */
+  .filter-bar { 
+      display:flex; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:0px; background:var(--surface); 
+      align-items: center;
+  }
+  
+  .search-wrapper {
+      position: relative; flex: 1; display: flex; align-items: center;
+  }
+  .search-icon {
+      position: absolute; left: 12px; color: var(--muted); pointer-events: none; font-size: 14px;
+  }
+  .filter-input {
+      width: 100%; padding: 8px 12px 8px 36px; /* Space for icon */
+      border: 1px solid var(--line); border-radius: 24px; 
+      font-size: 13px; outline: none; transition: all 0.2s;
+      background: #f8fafc;
+  }
+  .filter-input:focus { 
+      background: #fff; border-color: var(--accent); 
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15); 
+  }
+  
+  .filter-select { 
+      padding:8px 12px; border:1px solid var(--line); border-radius: 6px; 
+      font-size: 12px; background:#fff; cursor:pointer; height: 34px;
+  }
+
+  /* Inputs */
+  input[type=file]{display:none}
+  label{display:block;font-size:11px;margin-bottom:4px;color:var(--muted);font-weight:600}
+  input[type=range]{width:100%; cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeModal()">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal()">×</button>
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <input type="checkbox" id="modalCheck" class="modal-check-input" title="Include in processing">
+                <h3 id="modalTitle" style="margin:0;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;">Filename.jpg</h3>
+            </div>
+            <span id="modalStatus" class="modal-status-pill" style="background:var(--ok)">APPROVED</span>
+        </div>
+        <img id="modalImage" class="modal-img" src="" />
+        <div class="modal-footer">
+            <span style="font-size:12px;color:var(--muted);margin-right:auto;align-self:center;">Check box to include/exclude.</span>
+            <button class="btn" onclick="closeModal()">Close</button>
+            <button class="btn primary" onclick="editFromModal()">Open in Editor</button>
+        </div>
+    </div>
+</div>
+
+<div class="app">
+  <div class="titlebar">
+    <div style="display:flex;gap:10px;align-items:center">
+      <h1>RetinaPrep AI Tool v3.4</h1>
+      <span style="font-size:12px;color:var(--muted)" id="statusText">Ready</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input type="file" id="fileInput" multiple webkitdirectory />
+      <button class="btn" onclick="document.getElementById('fileInput').click()">📂 Upload</button>
+      <button class="btn start" id="btnStart" onclick="startProcessing()" disabled>▶ Start Processing</button>
+      <button class="btn" onclick="resetAll()">Reset</button>
+      <button class="btn primary" id="btnExport" onclick="exportBatch()" disabled>💾 Save ZIP (Selected)</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-left" id="colLeft">
+      <div class="card" style="flex:1;min-height:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex:0 0 auto;">
+            <div style="font-weight:600;font-size:12px;display:flex;gap:8px;align-items:center">
+                Images (<span id="countDisplay">0</span>)
+                <button class="btn small" onclick="toggleAllCheckboxes()">Toggle Check</button>
+            </div>
+            <button class="btn icon" id="btnToggleView" title="Toggle Thumbnail Grid" onclick="toggleViewMode()">≫</button>
+          </div>
+          <div class="list" id="fileList"></div>
+      </div>
+    </div>
+
+    <div class="col-center">
+      <div class="pane">
+        <span class="pane-label">Original Input</span>
+        <canvas id="cvOriginal"></canvas>
+      </div>
+      <div class="pane">
+        <span class="pane-label">AI Visualizer</span>
+        <canvas id="cvVisual"></canvas>
+      </div>
+      <div class="pane">
+        <span class="pane-label">Interactive Crop</span>
+        <canvas id="cvCrop"></canvas>
+      </div>
+      <div class="pane">
+        <span class="pane-label">Magnifier</span>
+        <canvas id="cvMag"></canvas>
+      </div>
+    </div>
+
+    <div class="col-right">
+      <div class="card" style="flex:0 0 auto">
+        <div style="font-weight:600;font-size:12px;margin-bottom:6px">AI Statistics</div>
+        <table id="statsTable">
+            <tr><td><b>Status</b></td><td id="statStatus" style="font-weight:bold">-</td></tr>
+            <tr><td>Quality Score</td><td id="statScorePct" style="font-weight:bold;color:var(--accent)">-</td></tr>
+            <tr><td>Raw Score</td><td id="statScore">-</td></tr>
+            <tr><td>Area (px)</td><td id="statArea">-</td></tr>
+            <tr><td>Circularity</td><td id="statCirc">-</td></tr>
+            <tr><td>Dist. Factor</td><td id="statDist">-</td></tr>
+        </table>
+        <div style="margin-top:10px;display:flex;gap:5px">
+             <button class="btn ok" style="flex:1" id="btnApprove" onclick="setDecision(true)" disabled>Approve</button>
+             <button class="btn bad" style="flex:1" id="btnReject" onclick="setDecision(false)" disabled>Reject</button>
+        </div>
+      </div>
+
+      <div class="card" style="flex:0 0 auto; gap:12px">
+        <div>
+            <div style="font-weight:600;font-size:12px;margin-bottom:6px">Crop Controls</div>
+            <label>Square Size (Radius)</label>
+            <input type="range" id="rangeSize" min="50" max="300" oninput="updateCropSize(this.value)" disabled>
+            <p style="font-size:10px;color:var(--muted);margin:2px 0 0">Drag center to move. Drag corners to resize.</p>
+        </div>
+        <div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <label style="margin-bottom:0">Brightness Enhancement</label>
+                <button class="btn small" onclick="resetBrightness()">Reset</button>
+            </div>
+            <input type="range" id="rangeBrightness" min="-60" max="60" value="0" oninput="updateBrightness(this.value)">
+        </div>
+      </div>
+
+      <div class="card" style="flex:1;min-height:0;overflow:hidden;">
+        <div style="font-weight:600;font-size:12px;margin-bottom:6px;flex:0 0 auto;">Batch Summary</div>
+        
+        <div class="filter-bar">
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="filterName" class="filter-input" placeholder="Search images..." oninput="updateSummaryTable()">
+            </div>
+            <select id="filterStatus" class="filter-select" onchange="updateSummaryTable()">
+                <option value="all">All</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+            </select>
+        </div>
+
+        <div style="overflow-y:auto;flex:1;min-height:0;">
+            <table id="summaryTable">
+                <thead>
+                    <tr>
+                        <th style="width:24px"><input type="checkbox" id="headerCheck" onclick="toggleVisibleRows(this)"></th>
+                        <th onclick="changeSort('name')">Image Name ⇅</th>
+                        <th onclick="changeSort('status')">Status ⇅</th>
+                        <th onclick="changeSort('score')">Rel. Score ⇅</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- State ---
+let queue = []; 
+let idx = -1;
+let processingActive = false;
+let maxBatchScore = 1;
+let brightness = 0;
+let isGridMode = false;
+let modalIndex = -1; 
+const FIXED_DIM = 1024; 
+
+let currentSort = { col: 'score', dir: -1 }; 
+let visibleIndices = []; 
+
+// --- Elements ---
+const els = {
+    fileInput: document.getElementById('fileInput'),
+    fileList: document.getElementById('fileList'),
+    colLeft: document.getElementById('colLeft'),
+    btnToggleView: document.getElementById('btnToggleView'),
+    
+    modalOverlay: document.getElementById('modalOverlay'),
+    modalImage: document.getElementById('modalImage'),
+    modalTitle: document.getElementById('modalTitle'),
+    modalStatus: document.getElementById('modalStatus'),
+    modalCheck: document.getElementById('modalCheck'),
+
+    cvO: document.getElementById('cvOriginal'),
+    cvV: document.getElementById('cvVisual'),
+    cvC: document.getElementById('cvCrop'),
+    cvM: document.getElementById('cvMag'),
+    
+    statStatus: document.getElementById('statStatus'),
+    statScore: document.getElementById('statScore'),
+    statScorePct: document.getElementById('statScorePct'), 
+    statArea: document.getElementById('statArea'),
+    statCirc: document.getElementById('statCirc'),
+    statDist: document.getElementById('statDist'),
+    summaryBody: document.querySelector('#summaryTable tbody'),
+    headerCheck: document.getElementById('headerCheck'),
+    
+    filterName: document.getElementById('filterName'),
+    filterStatus: document.getElementById('filterStatus'),
+
+    btnStart: document.getElementById('btnStart'),
+    btnExport: document.getElementById('btnExport'),
+    btnApprove: document.getElementById('btnApprove'),
+    btnReject: document.getElementById('btnReject'),
+    rangeSize: document.getElementById('rangeSize'),
+    rangeBrightness: document.getElementById('rangeBrightness'),
+    statusText: document.getElementById('statusText')
+};
+
+const ctxO = els.cvO.getContext('2d');
+const ctxV = els.cvV.getContext('2d');
+const ctxC = els.cvC.getContext('2d');
+const ctxM = els.cvM.getContext('2d');
+
+els.fileInput.addEventListener('change', handleUpload);
+
+function toggleViewMode() {
+    isGridMode = !isGridMode;
+    if(isGridMode) {
+        els.colLeft.classList.add('expanded');
+        els.fileList.classList.add('grid-mode');
+        els.btnToggleView.innerText = '≪'; 
+    } else {
+        els.colLeft.classList.remove('expanded');
+        els.fileList.classList.remove('grid-mode');
+        els.btnToggleView.innerText = '≫'; 
+    }
+    renderList();
+}
+
+function openModal(i) {
+    modalIndex = i;
+    const item = queue[i];
+    els.modalTitle.innerText = item.file.name;
+    els.modalCheck.checked = item.checked;
+    els.modalCheck.onclick = () => {
+        queue[i].checked = els.modalCheck.checked;
+        renderList(); 
+        updateSummaryTable();
+    };
+
+    if(item.status === 'done') {
+        if(item.decision) {
+            els.modalStatus.innerText = "APPROVED";
+            els.modalStatus.style.background = "var(--ok)";
+        } else {
+            els.modalStatus.innerText = "REJECTED";
+            els.modalStatus.style.background = "var(--bad)";
+        }
+        els.modalImage.src = 'data:image/jpeg;base64,' + item.data.img_visual;
+    } else {
+        els.modalStatus.innerText = "PENDING";
+        els.modalStatus.style.background = "var(--muted)";
+        els.modalImage.src = item.url;
+    }
+    els.modalOverlay.classList.add('open');
+}
+
+function closeModal() {
+    els.modalOverlay.classList.remove('open');
+    modalIndex = -1;
+}
+
+function editFromModal() {
+    if(modalIndex === -1) return;
+    selectItem(modalIndex); 
+    closeModal();
+    if(isGridMode) toggleViewMode();
+}
+
+async function handleUpload(e) {
+    const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+    if(files.length === 0) return;
+
+    if(queue.length === 0) maxBatchScore = 1;
+
+    files.forEach(f => {
+        queue.push({
+            file: f,
+            url: URL.createObjectURL(f), 
+            status: 'pending',
+            checked: true,
+            data: null, 
+            decision: true, 
+            userCrop: {x: FIXED_DIM/2, y: FIXED_DIM/2, r: 140},
+            localImgObj: null 
+        });
+    });
+
+    renderList();
+    els.statusText.innerText = `${queue.length} images queued. Click Start or use Grid View ≫`;
+    els.btnStart.disabled = false;
+    
+    if(idx === -1 && queue.length > 0) selectItem(0);
+}
+
+function renderList() {
+    els.fileList.innerHTML = '';
+    queue.forEach((item, i) => {
+        if(isGridMode) {
+            const card = document.createElement('div');
+            card.className = `grid-card ${i === idx ? 'active' : ''}`;
+            
+            const check = document.createElement('input');
+            check.type = 'checkbox';
+            check.className = 'grid-check';
+            check.checked = item.checked;
+            check.onclick = (e) => toggleCheck(i, e);
+            
+            const img = document.createElement('img');
+            img.className = 'grid-thumb';
+            // No lazy for speed
+            
+            if(item.status === 'done' && item.data && item.data.img_visual) {
+                img.src = 'data:image/jpeg;base64,' + item.data.img_visual;
+            } else {
+                img.src = item.url;
+            }
+            
+            if(item.status === 'done') {
+                const badge = document.createElement('span');
+                badge.className = 'grid-status-badge ' + (item.decision ? 'ok' : 'bad');
+                badge.innerText = item.decision ? 'APPROVED' : 'REJECTED';
+                card.appendChild(badge);
+            }
+            
+            const info = document.createElement('div');
+            info.className = 'grid-info';
+            info.innerText = `${i+1}. ${item.file.name}`;
+            if(item.status==='done' && !item.decision) info.style.color = '#fca5a5'; 
+
+            card.append(check, img, info);
+            card.onclick = (e) => { if(e.target.type !== 'checkbox') openModal(i); };
+            els.fileList.appendChild(card);
+        } 
+        else {
+            const div = document.createElement('div');
+            div.className = `item ${i === idx ? 'active' : ''}`;
+            let pill = `<span class="pill pending">Pending</span>`;
+            if(item.status === 'loading') pill = `<span class="pill loading">AI...</span>`;
+            else if(item.status === 'skipped') pill = `<span class="pill skipped">Skipped</span>`;
+            else if(item.status === 'error') pill = `<span class="pill bad">Error</span>`;
+            else if(item.status === 'done') pill = item.decision ? `<span class="pill ok">Approved</span>` : `<span class="pill bad">Rejected</span>`;
+            
+            const checkbox = `<input type="checkbox" ${item.checked ? 'checked' : ''} onclick="toggleCheck(${i}, event)">`;
+            div.innerHTML = `${checkbox} <span style="flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i+1}. ${item.file.name}</span> ${pill}`;
+            div.onclick = (e) => { if(e.target.type !== 'checkbox') selectItem(i); };
+            els.fileList.appendChild(div);
+        }
+    });
+    const activeCount = queue.filter(q => q.checked).length;
+    document.getElementById('countDisplay').innerText = `${activeCount} / ${queue.length}`;
+}
+
+function startProcessing() {
+    processingActive = true;
+    els.btnStart.disabled = true;
+    processNext();
+}
+
+async function processNext() {
+    if(!processingActive) return;
+    const nextIdx = queue.findIndex(q => q.status === 'pending');
+    
+    if (nextIdx === -1) {
+        els.statusText.innerText = "Processing Completed.";
+        els.btnExport.disabled = false;
+        els.btnStart.disabled = true;
+        processingActive = false;
+        return;
+    }
+
+    const item = queue[nextIdx];
+    if (!item.checked) {
+        item.status = 'skipped';
+        renderList(); 
+        setTimeout(processNext, 10);
+        return;
+    }
+
+    item.status = 'loading';
+    if(!isGridMode) renderList(); 
+    if(!isGridMode) selectItem(nextIdx); 
+    els.statusText.innerText = `Processing ${item.file.name}...`;
+
+    const formData = new FormData();
+    formData.append('image', item.file);
+
+    try {
+        const res = await fetch('process', { method: 'POST', body: formData });
+        const json = await res.json();
+        
+        item.data = json;
+        item.status = 'done';
+        
+        if (json.stats.score > maxBatchScore) {
+            maxBatchScore = json.stats.score;
+            updateSummaryTable(); 
+        }
+        if(json.stats.score < 500) item.decision = false; 
+
+        if(json.stats.found) {
+            const DEFAULT_PADDING = 1.40; 
+            item.userCrop = { x: json.stats.center_x, y: json.stats.center_y, r: json.stats.radius * DEFAULT_PADDING };
+        }
+    } catch (err) {
+        console.error(err);
+        item.status = 'error';
+        item.decision = false;
+    }
+
+    renderList(); 
+    updateSummaryTable();
+    if(!isGridMode) selectItem(nextIdx); 
+    processNext();
+}
+
+function selectItem(i) {
+    idx = i;
+    const item = queue[i];
+    if(!isGridMode) renderList();
+
+    els.rangeSize.disabled = true;
+    els.btnApprove.disabled = true;
+    els.btnReject.disabled = true;
+    els.statStatus.innerText = '-';
+    els.statScorePct.innerText = '-';
+    els.statScore.innerText = '-';
+    els.statArea.innerText = '-';
+    els.statCirc.innerText = '-';
+    els.statDist.innerText = '-';
+
+    els.cvO.width = FIXED_DIM; els.cvO.height = FIXED_DIM;
+    els.cvV.width = FIXED_DIM; els.cvV.height = FIXED_DIM;
+    els.cvC.width = FIXED_DIM; els.cvC.height = FIXED_DIM;
+    els.cvM.width = 224; els.cvM.height = 224;
+
+    if(item.status !== 'done') {
+        ctxV.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+        ctxC.clearRect(0,0,FIXED_DIM,FIXED_DIM); 
+        ctxM.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+        if(item.localImgObj) drawPendingPreview(item.localImgObj);
+        else {
+             const img = new Image();
+             img.onload = () => { item.localImgObj = img; drawPendingPreview(img); };
+             img.src = item.url; 
+        }
+        return;
+    }
+
+    els.rangeSize.disabled = false;
+    els.rangeSize.value = item.userCrop.r;
+    els.btnApprove.disabled = false;
+    els.btnReject.disabled = false;
+    
+    const imgO = new Image(); imgO.onload = () => drawAllResults(imgO, null); imgO.src = 'data:image/jpeg;base64,' + item.data.img_original;
+    const imgV = new Image(); imgV.onload = () => drawAllResults(null, imgV); imgV.src = 'data:image/jpeg;base64,' + item.data.img_visual;
+
+    const s = item.data.stats;
+    els.statScore.innerText = s.score.toFixed(0);
+    els.statScorePct.innerText = getBatchRelativeScore(s.score) + "%";
+    els.statArea.innerText = s.area;
+    els.statCirc.innerText = s.circularity.toFixed(3);
+    els.statDist.innerText = s.dist_factor.toFixed(3);
+
+    updateDecisionButtons();
+    updateSummaryTable(); 
+}
+
+function updateDecisionButtons() {
+     if(idx === -1 || queue[idx].status !== 'done') return;
+     const decision = queue[idx].decision;
+     if (decision) {
+         els.statStatus.innerText = "APPROVED";
+         els.statStatus.style.color = "var(--ok)";
+         els.btnApprove.className = "btn ok"; 
+         els.btnReject.className = "btn bad outline"; 
+     } else {
+         els.statStatus.innerText = "REJECTED";
+         els.statStatus.style.color = "var(--bad)";
+         els.btnApprove.className = "btn ok outline"; 
+         els.btnReject.className = "btn bad"; 
+     }
+}
+
+function getBatchRelativeScore(raw) {
+    if(maxBatchScore <= 1) return 0;
+    let pct = (raw / maxBatchScore) * 100;
+    return Math.min(100, Math.max(0, pct)).toFixed(1);
+}
+
+function drawScaled(img, ctx) {
+    const canvas = ctx.canvas;
+    const hRatio = canvas.width / img.width;
+    const vRatio = canvas.height / img.height;
+    const ratio  = Math.min(hRatio, vRatio);
+    const centerShift_x = (canvas.width - img.width*ratio) / 2;
+    const centerShift_y = (canvas.height - img.height*ratio) / 2;
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    ctx.drawImage(img, 0,0, img.width, img.height, centerShift_x,centerShift_y,img.width*ratio, img.height*ratio);
+}
+
+function applyBrightness(ctx) {
+    if(brightness === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = brightness > 0 ? 'lighten' : 'darken';
+    ctx.fillStyle = brightness > 0 ? `rgba(255,255,255,${brightness/100})` : `rgba(0,0,0,${Math.abs(brightness)/100})`;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+}
+
+function drawPendingPreview(img) {
+    drawScaled(img, ctxO);
+    applyBrightness(ctxO);
+    ctxV.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+    ctxC.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+    ctxM.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+}
+
+let currentImgO = null;
+let currentImgV = null;
+
+function drawAllResults(imgO, imgV) {
+    if(imgO) currentImgO = imgO;
+    if(imgV) currentImgV = imgV;
+    if(!currentImgO) return;
+
+    ctxO.drawImage(currentImgO, 0, 0);
+    ctxC.drawImage(currentImgO, 0, 0);
+    if(currentImgV) ctxV.drawImage(currentImgV, 0, 0);
+
+    applyBrightness(ctxO);
+    applyBrightness(ctxC);
+    if(currentImgV) applyBrightness(ctxV);
+
+    drawCropOverlay();
+    drawMagCanvas();
+}
+
+function drawCropOverlay() {
+    if(idx === -1) return;
+    const crop = queue[idx].userCrop;
+    const size = crop.r * 2;
+    ctxC.strokeStyle = '#2563eb'; ctxC.lineWidth = 4;
+    ctxC.strokeRect(crop.x - crop.r, crop.y - crop.r, size, size);
+    ctxC.fillStyle = 'rgba(37, 99, 235, 0.5)';
+    ctxC.beginPath(); ctxC.arc(crop.x, crop.y, 5, 0, Math.PI*2); ctxC.fill();
+    ctxC.fillStyle = '#fff';
+    const handleSize = 10; const half = handleSize/2;
+    ctxC.fillRect(crop.x - crop.r - half, crop.y - crop.r - half, handleSize, handleSize);
+    ctxC.fillRect(crop.x + crop.r - half, crop.y - crop.r - half, handleSize, handleSize);
+    ctxC.fillRect(crop.x - crop.r - half, crop.y + crop.r - half, handleSize, handleSize);
+    ctxC.fillRect(crop.x + crop.r - half, crop.y + crop.r - half, handleSize, handleSize);
+}
+
+function drawMagCanvas() {
+    if(idx === -1) return;
+    const crop = queue[idx].userCrop;
+    const d = crop.r * 2;
+    ctxM.drawImage(els.cvC, crop.x - crop.r, crop.y - crop.r, d, d, 0, 0, 224, 224);
+}
+
+function updateBrightness(val) {
+    brightness = parseInt(val);
+    if(idx !== -1) {
+        if(queue[idx].status === 'done') drawAllResults(null, null);
+        else if (queue[idx].localImgObj) drawPendingPreview(queue[idx].localImgObj);
+    }
+}
+
+function resetBrightness() {
+    brightness = 0;
+    els.rangeBrightness.value = 0;
+    updateBrightness(0);
+}
+
+let isDragging = false; 
+let dragMode = ''; 
+
+function getPos(e) {
+    const r = els.cvC.getBoundingClientRect();
+    const scale = FIXED_DIM / r.width;
+    return { x: (e.clientX - r.left) * scale, y: (e.clientY - r.top) * scale };
+}
+
+els.cvC.addEventListener('mousemove', e => {
+    if(idx === -1 || queue[idx].status !== 'done') return;
+    const p = getPos(e); 
+    const c = queue[idx].userCrop;
+    const corners = [{x: c.x - c.r, y: c.y - c.r}, {x: c.x + c.r, y: c.y - c.r}, {x: c.x - c.r, y: c.y + c.r}, {x: c.x + c.r, y: c.y + c.r}];
+    let hitCorner = corners.some(corner => Math.hypot(p.x - corner.x, p.y - corner.y) < 20);
+    let hitEdge = (Math.abs((p.x - c.x) - c.r) < 15) || (Math.abs((p.y - c.y) - c.r) < 15);
+    let hitCenter = Math.hypot(p.x - c.x, p.y - c.y) < c.r * 0.8;
+
+    if (isDragging) els.cvC.style.cursor = dragMode === 'move' ? 'grabbing' : 'crosshair';
+    else {
+        if (hitCorner || hitEdge) els.cvC.style.cursor = 'crosshair';
+        else if (hitCenter) els.cvC.style.cursor = 'grab';
+        else els.cvC.style.cursor = 'default';
+    }
+});
+
+els.cvC.addEventListener('mousedown', e => {
+    if(idx === -1 || queue[idx].status !== 'done') return;
+    const p = getPos(e); const c = queue[idx].userCrop;
+    const corners = [{x: c.x - c.r, y: c.y - c.r}, {x: c.x + c.r, y: c.y - c.r}, {x: c.x - c.r, y: c.y + c.r}, {x: c.x + c.r, y: c.y + c.r}];
+    let hitCorner = corners.some(corner => Math.hypot(p.x - corner.x, p.y - corner.y) < 20);
+    let hitEdge = (Math.abs((p.x - c.x) - c.r) < 15) || (Math.abs((p.y - c.y) - c.r) < 15);
+
+    if (hitCorner || hitEdge) { isDragging = true; dragMode = 'resize'; } 
+    else if (Math.hypot(p.x - c.x, p.y - c.y) < c.r * 0.8) { isDragging = true; dragMode = 'move'; }
+});
+
+window.addEventListener('mousemove', e => {
+    if(!isDragging || idx === -1 || queue[idx].status !== 'done') return;
+    const p = getPos(e); const item = queue[idx];
+    if(dragMode === 'move') { item.userCrop.x = p.x; item.userCrop.y = p.y; } 
+    else if (dragMode === 'resize') {
+        const dx = Math.abs(p.x - item.userCrop.x); const dy = Math.abs(p.y - item.userCrop.y);
+        let newR = Math.max(dx, dy); item.userCrop.r = Math.max(50, Math.min(400, newR)); 
+        els.rangeSize.value = item.userCrop.r;
+    }
+    drawAllResults(null, null);
+});
+
+window.addEventListener('mouseup', () => { isDragging = false; els.cvC.style.cursor = 'default'; });
+
+function updateCropSize(val) {
+    if(idx === -1 || queue[idx].status !== 'done') return;
+    queue[idx].userCrop.r = parseInt(val);
+    drawAllResults(null, null);
+}
+
+function setDecision(state) {
+    if(idx === -1 || queue[idx].status !== 'done') return;
+    queue[idx].decision = state;
+    updateDecisionButtons();
+    renderList();
+    updateSummaryTable();
+}
+
+function resetAll() {
+    if(!confirm("Reset everything?")) return;
+    queue = []; idx = -1; processingActive = false; maxBatchScore = 1; brightness = 0; isGridMode = false;
+    els.colLeft.classList.remove('expanded'); els.btnToggleView.innerText = '≫';
+    renderList(); els.summaryBody.innerHTML = ''; els.statusText.innerText = "Ready";
+    els.fileInput.value = ''; els.btnStart.disabled = true; els.btnExport.disabled = true;
+    els.rangeBrightness.value = 0;
+    currentImgO = null; currentImgV = null; 
+    ctxO.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+    ctxV.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+    ctxC.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+    ctxM.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+    selectItem(-1);
+}
+
+function toggleCheck(i, event) { 
+    event.stopPropagation(); 
+    queue[i].checked = event.target.checked; 
+    renderList(); 
+    updateSummaryTable(); 
+}
+
+function toggleAllCheckboxes() { 
+    const allChecked = queue.every(q => q.checked); 
+    queue.forEach(q => q.checked = !allChecked); 
+    renderList(); 
+    updateSummaryTable();
+}
+
+function changeSort(col) {
+    if(currentSort.col === col) currentSort.dir *= -1; 
+    else { currentSort.col = col; currentSort.dir = (col === 'score') ? -1 : 1; }
+    updateSummaryTable();
+}
+
+function toggleVisibleRows(headerCheckbox) {
+    const isChecked = headerCheckbox.checked;
+    visibleIndices.forEach(i => { queue[i].checked = isChecked; });
+    renderList(); updateSummaryTable(); 
+}
+
+function updateSummaryTable() {
+    els.summaryBody.innerHTML = '';
+    visibleIndices = []; 
+    const filterTxt = els.filterName.value.toLowerCase();
+    const filterStat = els.filterStatus.value; 
+
+    const list = queue.map((item, index) => ({ index, item })).filter(obj => obj.item.status === 'done');
+
+    const filtered = list.filter(obj => {
+        if(!obj.item.file.name.toLowerCase().includes(filterTxt)) return false;
+        if(filterStat === 'approved' && !obj.item.decision) return false;
+        if(filterStat === 'rejected' && obj.item.decision) return false;
+        return true;
+    });
+
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if(currentSort.col === 'name') { valA = a.item.file.name; valB = b.item.file.name; } 
+        else if (currentSort.col === 'status') { valA = a.item.decision ? 1 : 0; valB = b.item.decision ? 1 : 0; } 
+        else { valA = parseFloat(getBatchRelativeScore(a.item.data.stats.score)); valB = parseFloat(getBatchRelativeScore(b.item.data.stats.score)); }
+        if(valA < valB) return -1 * currentSort.dir; if(valA > valB) return 1 * currentSort.dir; return 0;
+    });
+
+    if(filtered.length === 0) {
+        els.summaryBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:12px;color:var(--muted)">No matching images found</td></tr>`;
+    } else {
+        filtered.forEach(obj => {
+            const { index, item } = obj;
+            visibleIndices.push(index); 
+            const score = getBatchRelativeScore(item.data.stats.score);
+            const row = document.createElement('tr');
+            row.className = `summary-row ${index === idx ? 'active-row' : ''}`;
+            row.innerHTML = `
+                <td><input type="checkbox" ${item.checked ? 'checked' : ''} onclick="toggleCheck(${index}, event)"></td>
+                <td><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${item.file.name}</div></td>
+                <td style="color:${item.decision?'var(--ok)':'var(--bad)'}">${item.decision?'Approve':'Reject'}</td>
+                <td><b>${score}%</b></td>
+            `;
+            row.onclick = (e) => { if(e.target.type !== 'checkbox') { if(isGridMode) toggleViewMode(); selectItem(index); } };
+            els.summaryBody.appendChild(row);
+        });
+    }
+
+    if(idx !== -1 && queue[idx].status === 'done') {
+        els.statScorePct.innerText = getBatchRelativeScore(queue[idx].data.stats.score) + "%";
+    }
+}
+
+async function exportBatch() {
+    const zipName = prompt("Enter name for the ZIP file:", "RetinaPrep_Results");
+    if(!zipName) return;
+    els.statusText.innerText = "Generating ZIP...";
+    const zip = new JSZip();
+    const folderVisuals = zip.folder("visualizations");
+    const folderCrops = zip.folder("crops");
+    let csv = "filename,status,relative_score_pct,raw_score,area,circularity,distance_factor,final_crop_x,final_crop_y,final_crop_radius\n";
+    
+    // --- EXPORT FIX: Create Reusable Canvases ---
+    const srcCanvas = document.createElement('canvas'); srcCanvas.width = FIXED_DIM; srcCanvas.height = FIXED_DIM;
+    const srcCtx = srcCanvas.getContext('2d');
+    const outCanvas = document.createElement('canvas'); outCanvas.width = 224; outCanvas.height = 224;
+    const outCtx = outCanvas.getContext('2d');
+
+    let count = 0;
+    for(const item of queue) {
+        if(item.status !== 'done' || !item.checked) continue;
+        count++;
+        
+        folderVisuals.file(item.file.name.replace('.','_vis.'), item.data.img_visual, {base64: true});
+        
+        if(item.decision) {
+            // LOAD IMAGE SEPARATELY FOR CLEAN CROP
+            const img = new Image();
+            await new Promise((resolve) => {
+                img.onload = resolve;
+                img.src = 'data:image/jpeg;base64,' + item.data.img_original;
+            });
+
+            // Draw to temp source (Clean)
+            srcCtx.clearRect(0,0,FIXED_DIM,FIXED_DIM);
+            srcCtx.drawImage(img, 0, 0);
+
+            // Apply Brightness if any
+            if(brightness !== 0) {
+                srcCtx.save();
+                srcCtx.globalCompositeOperation = brightness > 0 ? 'lighten' : 'darken';
+                srcCtx.fillStyle = brightness > 0 ? `rgba(255,255,255,${brightness/100})` : `rgba(0,0,0,${Math.abs(brightness)/100})`;
+                srcCtx.fillRect(0, 0, FIXED_DIM, FIXED_DIM);
+                srcCtx.restore();
+            }
+
+            // Draw to Final Crop Canvas
+            const c = item.userCrop;
+            const d = c.r * 2;
+            outCtx.clearRect(0,0,224,224);
+            outCtx.drawImage(srcCanvas, c.x - c.r, c.y - c.r, d, d, 0, 0, 224, 224);
+
+            const cropBlob = await new Promise(r => outCanvas.toBlob(r, 'image/jpeg', 0.95));
+            folderCrops.file(item.file.name.replace('.','_crop.'), cropBlob);
+        }
+        
+        const s = item.data.stats;
+        csv += `${item.file.name},${item.decision?'Approved':'Rejected'},${getBatchRelativeScore(s.score)},${s.score},${s.area},${s.circularity},${s.dist_factor},${item.userCrop.x.toFixed(0)},${item.userCrop.y.toFixed(0)},${item.userCrop.r}\n`;
+    }
+    
+    if(count === 0) { alert("No items selected for export!"); els.statusText.innerText = "Export Cancelled."; return; }
+
+    zip.file("summary.csv", csv);
+    saveAs(await zip.generateAsync({type:"blob"}), zipName + ".zip");
+    els.statusText.innerText = `Export Complete! (${count} files)`;
+}
+</script>
+</body>
+</html>
