@@ -5,16 +5,16 @@
 ![RetinaPrep Interface](figures/fig6.png)
 *Figure 1: The Main Interface showing the Tri-Pane view (Original, AI Mask, Interactive Crop).*
 
-## 🚀 Key Features
+## Key Features
 
-* **Intelligent Discovery:** "Gallery Grid" view with color-coded status badges (Approved/Rejected) based on AI confidence scores.
-* **Tri-Pane Editing:** Synchronized view of the **Original Input**, **AI Segmentation Mask** (SegFormer), and **Interactive Crop**.
-* **Precision Tools:**
+**Intelligent Discovery:** "Gallery Grid" view with color-coded status badges (Approved/Rejected) based on AI confidence scores.
+**Tri-Pane Editing:** Synchronized view of the **Original Input**, **AI Segmentation Mask** (SegFormer), and **Interactive Crop**.
+**Precision Tools:**
     * **Click-to-Center:** Manually correct optic disc alignment with a single click.
     * **Dynamic Resizing:** Adjust crop radius pixel-perfectly using drag handles.
     * **Visual Enhancement:** Hardware-accelerated brightness slider for inspecting dark fundus images without altering the export.
-* **Quality Assurance:** Real-time metrics for Quality Score, Circularity, and Geometric Area.
-* **Structured Output:**
+**Quality Assurance:** Real-time metrics for Quality Score, Circularity, and Geometric Area.
+**Structured Output:**
     * Auto-generated CSV reports (containing filenames, geometric metrics, and validation status).
     * Standardized ZIP archives containing separated `Crops/` (for training) and `Visualizations/` (for debugging) folders.
 
