@@ -35,14 +35,12 @@ Follow these steps to run RetinaPrep locally.
    ```bash
    git clone https://github.com/OmarSulaivany/RetinaPrep.git
    cd RetinaPrep
-2. **Create a Virtual Environment (Recommended)
+2. **Create a Virtual Environment (Recommended)**
 It is best practice to run this in an isolated environment to avoid dependency conflicts.
 
 Windows:
   ```bash
   python -m venv venv
   venv\Scripts\activate
-
-
 
 
