@@ -3,9 +3,9 @@
 **RetinaPrep** is a web-based, "Human-in-the-Loop" tool designed to standardize the cropping and quality assurance of retinal fundus images for deep learning applications. It bridges the gap between fully automated scripts and manual curation by providing an interactive interface to verify, correct, and export high-quality datasets.
 
 ![RetinaPrep Interface](figures/fig6.png)  
-*Figure 1: The Main Interface showing the Tri-Pane view (Original, AI Mask, Interactive Crop).*
+*The Main Interface showing the Tri-Pane view (Original, AI Mask, Interactive Crop).*
 
-## 🚀 Key Features
+## Key Features
 
 1. **Intelligent Discovery:** "Gallery Grid" view with color-coded status badges (Approved/Rejected) based on AI confidence scores.
 2. **Tri-Pane Editing:** Synchronized view of the **Original Input**, **AI Segmentation Mask** (SegFormer), and **Interactive Crop**.
@@ -42,5 +42,4 @@ Windows:
   ```bash
   python -m venv venv
   venv\Scripts\activate
-
 
